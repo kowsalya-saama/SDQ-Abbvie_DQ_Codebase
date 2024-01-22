@@ -1,0 +1,38 @@
+"""
+Rule Name: rulefn_155
+Domains: trigger_df
+Logic:
+If _V_ECDOSE_SAE <> NULL and  _V_ECTRT_SAE = NULL and  for same VISITINDEX , query should fire.
+
+"""
+
+def rulefn_155(query_text, trigger_df):
+    prim_df = trigger_df.copy()
+    payload_records = []
+    if prim_df.shape[0] > 0:
+        args_dict = {
+            'prim_form_ls': ['SINT_F'],
+            'prim_visit_ls': ['SAE'],
+            'logic_text': "(((_V_ECDOSE_SAE not in @null_values) and ~(_V_ECDOSE_SAE.isna())) and (_V_ECTRT_SAE.isna() or _V_ECTRT_SAE in @null_values))",
+            'null_values': ['null', 'Null', 'NULL', 'NaN', '', ' ', 'None', 'NaT', 'np.nan', 'nan', None, np.nan]
+        }
+        prim_form_ls = args_dict['prim_form_ls']
+        prim_visit_ls = args_dict['prim_visit_ls']
+        logic_text = args_dict['logic_text']
+        null_values = args_dict['null_values']
+        prim_df = udf_glbl_filter_by_form_visit(prim_df, prim_form_ls, prim_visit_ls)
+        if prim_df.shape[0] > 0:
+            prim_df = prim_df.query(logic_text)
+            if prim_df.shape[0] > 0:
+                for prim_ind in range(prim_df.shape[0]):
+                    prim_rec = prim_df.iloc[[prim_ind]]
+                    payload = {
+                        "query_text": query_text,
+                        "form_index": str(prim_rec['form_index'].values[0]),
+                        "modif_dts": str(pd.to_datetime(prim_rec['modif_dts'].values[0])),
+                        "stg_ck_event_id": int(prim_rec['ck_event_id']),
+                        "relational_ck_event_ids": [],
+                        "confid_score": 1,
+                    }
+                    payload_records.append(payload)
+    return payload_records
